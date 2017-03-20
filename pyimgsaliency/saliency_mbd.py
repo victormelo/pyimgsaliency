@@ -17,8 +17,8 @@ def raster_scan(img,L,U,D):
 	n_rows = len(img)
 	n_cols = len(img[0])
 
-	for x in xrange(1,n_rows - 1):
-		for y in xrange(1,n_cols - 1):
+	for x in range(1,n_rows - 1):
+		for y in range(1,n_cols - 1):
 			ix = img[x][y]
 			d = D[x][y]
 
@@ -48,8 +48,8 @@ def raster_scan_inv(img,L,U,D):
 	n_rows = len(img)
 	n_cols = len(img[0])
 
-	for x in xrange(n_rows - 2,1,-1):
-		for y in xrange(n_cols - 2,1,-1):
+	for x in range(n_rows - 2,1,-1):
+		for y in range(n_cols - 2,1,-1):
 
 			ix = img[x][y]
 			d = D[x][y]
@@ -99,7 +99,7 @@ def mbd(img, num_iters):
 	U_list = U.tolist()
 	D_list = D.tolist()
 
-	for x in xrange(0,num_iters):
+	for x in range(0,num_iters):
 		if x%2 == 1:
 			raster_scan(img_list,L_list,U_list,D_list)
 		else:
@@ -108,122 +108,109 @@ def mbd(img, num_iters):
 	return np.array(D_list)
 
 
-def get_saliency_mbd(input,method='b'):
-
-	img_path_list = []
-	#we get either a filename or a list of filenames
-	if type(input) == type(str()):
-		img_path_list.append(input)
-	elif type(input) == type(list()):
-		img_path_list = input
-	else:
-		print('Input type is neither list or string')
-		return None
+def get_saliency_mbd(img, method='b'):
 
 	# Saliency map calculation based on: Minimum Barrier Salient Object Detection at 80 FPS
-	for img_path in img_path_list:
-
-		img = skimage.io.imread(img_path)
-		img_mean = np.mean(img,axis=(2))
-		sal = mbd(img_mean,3)
+	img_mean = np.mean(img,axis=(2))
+	sal = mbd(img_mean,3)
 
 
-		if method == 'b':
-			# get the background map
+	if method == 'b':
+		# get the background map
 
-			# paper uses 30px for an image of size 300px, so we use 10%
-			(n_rows,n_cols,n_channels) = img.shape
-			img_size = math.sqrt(n_rows * n_cols)
-			border_thickness = int(math.floor(0.1 * img_size))
+		# paper uses 30px for an image of size 300px, so we use 10%
+		(n_rows,n_cols,n_channels) = img.shape
+		img_size = math.sqrt(n_rows * n_cols)
+		border_thickness = int(math.floor(0.1 * img_size))
 
-			img_lab = img_as_float(skimage.color.rgb2lab(img))
-			
-			px_left = img_lab[0:border_thickness,:,:]
-			px_right = img_lab[n_rows - border_thickness-1:-1,:,:]
+		img_lab = img_as_float(skimage.color.rgb2lab(img))
 
-			px_top = img_lab[:,0:border_thickness,:]
-			px_bottom = img_lab[:,n_cols - border_thickness-1:-1,:]
-			
-			px_mean_left = np.mean(px_left,axis=(0,1))
-			px_mean_right = np.mean(px_right,axis=(0,1))
-			px_mean_top = np.mean(px_top,axis=(0,1))
-			px_mean_bottom = np.mean(px_bottom,axis=(0,1))
+		px_left = img_lab[0:border_thickness,:,:]
+		px_right = img_lab[n_rows - border_thickness-1:-1,:,:]
 
+		px_top = img_lab[:,0:border_thickness,:]
+		px_bottom = img_lab[:,n_cols - border_thickness-1:-1,:]
 
-			px_left = px_left.reshape((n_cols*border_thickness,3))
-			px_right = px_right.reshape((n_cols*border_thickness,3))
-
-			px_top = px_top.reshape((n_rows*border_thickness,3))
-			px_bottom = px_bottom.reshape((n_rows*border_thickness,3))
-
-			cov_left = np.cov(px_left.T)
-			cov_right = np.cov(px_right.T)
-
-			cov_top = np.cov(px_top.T)
-			cov_bottom = np.cov(px_bottom.T)
-
-			cov_left = np.linalg.inv(cov_left)
-			cov_right = np.linalg.inv(cov_right)
-			
-			cov_top = np.linalg.inv(cov_top)
-			cov_bottom = np.linalg.inv(cov_bottom)
+		px_mean_left = np.mean(px_left,axis=(0,1))
+		px_mean_right = np.mean(px_right,axis=(0,1))
+		px_mean_top = np.mean(px_top,axis=(0,1))
+		px_mean_bottom = np.mean(px_bottom,axis=(0,1))
 
 
-			u_left = np.zeros(sal.shape)
-			u_right = np.zeros(sal.shape)
-			u_top = np.zeros(sal.shape)
-			u_bottom = np.zeros(sal.shape)
+		px_left = px_left.reshape((n_cols*border_thickness,3))
+		px_right = px_right.reshape((n_cols*border_thickness,3))
 
-			u_final = np.zeros(sal.shape)
-			img_lab_unrolled = img_lab.reshape(img_lab.shape[0]*img_lab.shape[1],3)
+		px_top = px_top.reshape((n_rows*border_thickness,3))
+		px_bottom = px_bottom.reshape((n_rows*border_thickness,3))
 
-			px_mean_left_2 = np.zeros((1,3))
-			px_mean_left_2[0,:] = px_mean_left
+		cov_left = np.cov(px_left.T)
+		cov_right = np.cov(px_right.T)
 
-			u_left = scipy.spatial.distance.cdist(img_lab_unrolled,px_mean_left_2,'mahalanobis', VI=cov_left)
-			u_left = u_left.reshape((img_lab.shape[0],img_lab.shape[1]))
+		cov_top = np.cov(px_top.T)
+		cov_bottom = np.cov(px_bottom.T)
 
-			px_mean_right_2 = np.zeros((1,3))
-			px_mean_right_2[0,:] = px_mean_right
+		cov_left = np.linalg.inv(cov_left + np.eye(cov_left.shape[1]) * 1e-12)
+		cov_right = np.linalg.inv(cov_right + np.eye(cov_right.shape[1]) * 1e-12)
 
-			u_right = scipy.spatial.distance.cdist(img_lab_unrolled,px_mean_right_2,'mahalanobis', VI=cov_right)
-			u_right = u_right.reshape((img_lab.shape[0],img_lab.shape[1]))
+		cov_top = np.linalg.inv(cov_top + np.eye(cov_top.shape[1]) * 1e-12)
+		cov_bottom = np.linalg.inv(cov_bottom + np.eye(cov_bottom.shape[1]) * 1e-12)
 
-			px_mean_top_2 = np.zeros((1,3))
-			px_mean_top_2[0,:] = px_mean_top
 
-			u_top = scipy.spatial.distance.cdist(img_lab_unrolled,px_mean_top_2,'mahalanobis', VI=cov_top)
-			u_top = u_top.reshape((img_lab.shape[0],img_lab.shape[1]))
+		u_left = np.zeros(sal.shape)
+		u_right = np.zeros(sal.shape)
+		u_top = np.zeros(sal.shape)
+		u_bottom = np.zeros(sal.shape)
 
-			px_mean_bottom_2 = np.zeros((1,3))
-			px_mean_bottom_2[0,:] = px_mean_bottom
+		u_final = np.zeros(sal.shape)
+		img_lab_unrolled = img_lab.reshape(img_lab.shape[0]*img_lab.shape[1],3)
 
-			u_bottom = scipy.spatial.distance.cdist(img_lab_unrolled,px_mean_bottom_2,'mahalanobis', VI=cov_bottom)
-			u_bottom = u_bottom.reshape((img_lab.shape[0],img_lab.shape[1]))
+		px_mean_left_2 = np.zeros((1,3))
+		px_mean_left_2[0,:] = px_mean_left
 
-			max_u_left = np.max(u_left)
-			max_u_right = np.max(u_right)
-			max_u_top = np.max(u_top)
-			max_u_bottom = np.max(u_bottom)
+		u_left = scipy.spatial.distance.cdist(img_lab_unrolled,px_mean_left_2,'mahalanobis', VI=cov_left)
+		u_left = u_left.reshape((img_lab.shape[0],img_lab.shape[1]))
 
-			u_left = u_left / max_u_left
-			u_right = u_right / max_u_right
-			u_top = u_top / max_u_top
-			u_bottom = u_bottom / max_u_bottom
+		px_mean_right_2 = np.zeros((1,3))
+		px_mean_right_2[0,:] = px_mean_right
 
-			u_max = np.maximum(np.maximum(np.maximum(u_left,u_right),u_top),u_bottom)
+		u_right = scipy.spatial.distance.cdist(img_lab_unrolled,px_mean_right_2,'mahalanobis', VI=cov_right)
+		u_right = u_right.reshape((img_lab.shape[0],img_lab.shape[1]))
 
-			u_final = (u_left + u_right + u_top + u_bottom) - u_max
+		px_mean_top_2 = np.zeros((1,3))
+		px_mean_top_2[0,:] = px_mean_top
 
-			u_max_final = np.max(u_final)
-			sal_max = np.max(sal)
-			sal = sal / sal_max + u_final / u_max_final
+		u_top = scipy.spatial.distance.cdist(img_lab_unrolled,px_mean_top_2,'mahalanobis', VI=cov_top)
+		u_top = u_top.reshape((img_lab.shape[0],img_lab.shape[1]))
+
+		px_mean_bottom_2 = np.zeros((1,3))
+		px_mean_bottom_2[0,:] = px_mean_bottom
+
+		u_bottom = scipy.spatial.distance.cdist(img_lab_unrolled,px_mean_bottom_2,'mahalanobis', VI=cov_bottom)
+		u_bottom = u_bottom.reshape((img_lab.shape[0],img_lab.shape[1]))
+
+		max_u_left = np.max(u_left)
+		max_u_right = np.max(u_right)
+		max_u_top = np.max(u_top)
+		max_u_bottom = np.max(u_bottom)
+
+		u_left = u_left / max_u_left
+		u_right = u_right / max_u_right
+		u_top = u_top / max_u_top
+		u_bottom = u_bottom / max_u_bottom
+
+		u_max = np.maximum(np.maximum(np.maximum(u_left,u_right),u_top),u_bottom)
+
+		u_final = (u_left + u_right + u_top + u_bottom) - u_max
+
+		u_max_final = np.max(u_final)
+		sal_max = np.max(sal)
+		sal = sal / sal_max + u_final / u_max_final
 
 		#postprocessing
 
 		# apply centredness map
 		sal = sal / np.max(sal)
-		
+
 		s = np.mean(sal)
 		alpha = 50.0
 		delta = alpha * math.sqrt(s)
@@ -237,7 +224,7 @@ def get_saliency_mbd(input,method='b'):
 
 		sal = sal * C
 
-		#increase bg/fg contrast 
+		#increase bg/fg contrast
 
 		def f(x):
 			b = 10.0

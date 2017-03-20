@@ -22,31 +22,31 @@ def compute_saliency_cost(smoothness,w_bg,wCtr):
 	A = np.zeros((n,n))
 	b = np.zeros((n))
 
-	for x in xrange(0,n):
+	for x in range(0,n):
 		A[x,x] = 2 * w_bg[x] + 2 * (wCtr[x])
 		b[x] = 2 * wCtr[x]
-		for y in xrange(0,n):
+		for y in range(0,n):
 			A[x,x] += 2 * smoothness[x,y]
 			A[x,y] -= 2 * smoothness[x,y]
-	
+
 	x = np.linalg.solve(A, b)
 
 	return x
 
 def path_length(path,G):
 	dist = 0.0
-	for i in xrange(1,len(path)):
+	for i in range(1,len(path)):
 		dist += G[path[i - 1]][path[i]]['weight']
 	return dist
 
 def make_graph(grid):
 	# get unique labels
 	vertices = np.unique(grid)
- 
+
 	# map unique labels to [1,...,num_labels]
 	reverse_dict = dict(zip(vertices,np.arange(len(vertices))))
 	grid = np.array([reverse_dict[x] for x in grid.flat]).reshape(grid.shape)
-   
+
 	# create edges
 	down = np.c_[grid[:-1, :].ravel(), grid[1:, :].ravel()]
 	right = np.c_[grid[:, :-1].ravel(), grid[:, 1:].ravel()]
@@ -58,18 +58,16 @@ def make_graph(grid):
 	# find unique connections
 	edges = np.unique(edge_hash)
 	# undo hashing
-	edges = [[vertices[x%num_vertices],
-			  vertices[x/num_vertices]] for x in edges] 
- 
-	return vertices, edges
-	
+	edges = [[vertices[int(x%num_vertices)],
+			  vertices[int(x/num_vertices)]] for x in edges]
 
-def get_saliency_rbd(img_path):
+	return vertices, edges
+
+
+def get_saliency_rbd(img):
 
 	# Saliency map calculation based on:
 	# Saliency Optimization from Robust Background Detection, Wangjiang Zhu, Shuang Liang, Yichen Wei and Jian Sun, IEEE Conference on Computer Vision and Pattern Recognition (CVPR), 2014
-
-	img = skimage.io.imread(img_path)
 
 	if len(img.shape) != 3: # got a grayscale image
 		img = skimage.color.gray2rgb(img)
@@ -148,7 +146,7 @@ def get_saliency_rbd(img_path):
 			else:
 				geodesic[v1,v2] = path_length(all_shortest_paths_color[v1][v2],G)
 				spatial[v1,v2] = scipy.spatial.distance.euclidean(centers[v1],centers[v2]) / max_dist
-				smoothness[v1,v2] = math.exp( - (geodesic[v1,v2] * geodesic[v1,v2])/(2.0*sigma_clr*sigma_clr)) + mu 
+				smoothness[v1,v2] = math.exp( - (geodesic[v1,v2] * geodesic[v1,v2])/(2.0*sigma_clr*sigma_clr)) + mu
 
 	for edge in edges:
 		pt1 = edge[0]
@@ -195,8 +193,8 @@ def get_saliency_rbd(img_path):
 	min_value = min(wCtr.values())
 	max_value = max(wCtr.values())
 
-	minVal = [key for key, value in wCtr.iteritems() if value == min_value]
-	maxVal = [key for key, value in wCtr.iteritems() if value == max_value]
+	minVal = [key for key, value in wCtr.items() if value == min_value]
+	maxVal = [key for key, value in wCtr.items() if value == max_value]
 
 	for v in vertices:
 		wCtr[v] = (wCtr[v] - min_value)/(max_value - min_value)
@@ -219,15 +217,11 @@ def get_saliency_rbd(img_path):
 
 	return sal
 
-def get_saliency_ft(img_path):
-
-	# Saliency map calculation based on:
-
-	img = skimage.io.imread(img_path)
+def get_saliency_ft(img):
 
 	img_rgb = img_as_float(img)
 
-	img_lab = skimage.color.rgb2lab(img_rgb) 
+	img_lab = skimage.color.rgb2lab(img_rgb)
 
 	mean_val = np.mean(img_rgb,axis=(0,1))
 
